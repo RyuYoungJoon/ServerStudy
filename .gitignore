@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+*.iobj
+*.ipdb
+*.log
+*.pdb
+*.tlog
+*.vsidx
