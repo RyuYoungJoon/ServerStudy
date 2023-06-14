@@ -57,3 +57,103 @@ private:
 
 	condition_variable _condVar;
 };
+
+
+template<typename T>
+class LockFreeStack
+{
+	struct Node
+	{
+		Node(const T& value) : data(value)
+		{};
+		T data;
+		Node* next;
+
+	};
+
+public:
+	// 1) 새 노드를 만든다.
+	// 2) 새 노드의 next = head
+	// 3) head = 새 노드
+
+	// [ ][ ][ ][ ][ ][ ][ ]
+	// [head]
+
+	void Push(const T& value)
+	{
+		Node* node = new Node(value);
+		node->next = _head; // 이 head는 여러 스레드가 동시 접근 할 수 있슴.
+
+		/*if (_head == node->next)
+		{
+			_head = node;
+			return true;
+		}
+		else
+		{
+			node->next = _head;
+			return false;
+		}*/
+
+		// 위의 코드를 atomoic하게 만들어줌
+		while (_head.compare_exchange_weak(node->next, node) == false)
+		{
+			//node->next = _head; -> cas에서 해주고 있슴.
+		}
+
+		//이 사이에 새치기 당하면?
+		//_head = node;
+
+	}
+
+
+	// 1) head를 읽는다.
+	// 2) head의 next를 읽는다.
+	// 3) head = head->next로 바꾼다.
+	// 4) 처음 head였던 node의 data 추출해서 반환
+	// 5) 추출한 노드를 삭제
+
+	bool TryPop(T& value)
+	{
+		Node* oldHead = _head;
+		
+		/*if (_head == oldHead)
+		{
+			_head = oldHead->next;
+			return true;
+		}
+		else
+		{
+			oldHead = _head;
+			return false;
+
+		}*/
+		// 위의 코드를 atomic하게 바꿈
+		while (oldHead && _head.compare_exchange_weak(oldHead, oldHead->next) == false)
+		{
+			
+			//oldHead = _head -> cas에서 해주고 있슴.
+		}
+
+		if (oldHead == nullptr)
+			return false;
+
+		// Exception X (예외를 신경쓰지 않는다.)
+		value = oldHead->data;
+		
+		// 잠시 삭제 보류
+		// 왜? 싱글 스레드에선 문제가 생기지 않는다. 
+		// 그러나 멀티 스레드 환경에서 한 스레드가 데이터를 읽고 delete했는데 다른 스레드가 접근해서 head를 읽는다면 이미 delete된 애를 읽게 되는것이다.
+		// 그럼 문제가 발생하기때문에 일단 삭제를 보류해보자.
+		// delete oldHead;
+
+		return true;
+	}
+
+
+private:
+	// [ ][ ][ ][ ][ ][ ][ ]
+	// [head]
+	atomic<Node*> _head;
+	
+};
