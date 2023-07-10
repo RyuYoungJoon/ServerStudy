@@ -4,14 +4,20 @@
 
 ThreadManager* GThreadManger = nullptr;
 
-CoreGlobal::CoreGlobal()
+class CoreGlobal
 {
-	cout << "스레드 생성" << endl;
-	GThreadManger = new ThreadManager();
-}
+public:
+	CoreGlobal()
+	{
+		cout << "스레드 생성" << endl;
+		GThreadManger = new ThreadManager();
+	}
+	~CoreGlobal()
+	{
+		cout << "스레드 삭제" << endl;
+		delete GThreadManger;
+	}
 
-CoreGlobal::~CoreGlobal()
-{
-	cout << "스레드 삭제" << endl;
-	delete GThreadManger;
-}
+
+} GCoreGlobal;
+
