@@ -9,74 +9,78 @@
 #include <future>
 #include "ThreadManager.h"
 
-// 소수 구하기
-bool IsPrime(int number)
+#include "RefCounting.h"
+
+class Wraight : public RefCountable
 {
-	if (number <= 1)
+public:
+	int _hp = 150;
+	int _posX = 0;
+	int _posY = 0;
+};
+
+using WraightRef = TSharedPtr<Wraight>;
+
+class Missile : public RefCountable
+{
+public:
+	void SetTarget(WraightRef target)
+	{
+		_target = target;
+		// 중간에 개입 가능
+		//target.AddRef();
+	}
+
+	bool Update()
+	{
+		if (_target == nullptr)
+			return true;
+
+		int posX = _target->_posX;
+		int posY = _target->_posY;
+
+		// TODO: 쫓아간다
+		if (_target->_hp == 0)
+		{
+			//_target->ReleaeseRef();
+			_target = nullptr;
+			return true;
+		}
 		return false;
-	if (number == 2 || number == 3)
-		return true;
-
-	for (int i = 2; i < number; ++i)
-	{
-		if ((number % i) == 0)
-			return false;
 	}
+	WraightRef _target = nullptr;
 
-	return true;
+};
 
-}
+using MissileRef = TSharedPtr<Missile>;
 
-// [start - end]
-int CountPrime(int start, int end)
-{
-	int count = 0;
-
-	for (int number = start; number <= end; number++)
-	{
-		if (IsPrime(number))
-			count++;
-	}
-	return count;
-}
-// 1과 자기 자신으로만 나뉘면 그것을 소수
 
 int main()
 {
-	const int MAX_NUMBER = 100'0000;
-	//int cnt = 0;
-	//for (int i = 2; i <= MAX_NUMBER; ++i)
-	//{
-	//	cnt = 0;
-	//	for (int j = 2; j <= i; ++j)
-	//	{
-	//		if (i % j == 0)
-	//			cnt++;
-	//	}
-	//	if (cnt == 1)
-	//		cout << i << endl;
-	//}
+	WraightRef wraight(new Wraight());
+	wraight->ReleaseRef();
+	MissileRef missile(new Missile());
+	missile->ReleaseRef();
+	
+	missile->SetTarget(wraight);
+	
+	// 레이스가 피격 당함
+	wraight->_hp = 0;
+	//wraight->ReleaeseRef();
+	wraight = nullptr;
 
-	//// 1 ~ MAX_NUMBER까지의 소수 개수. 최대한 쓰레드 사용해서
-
-	vector<thread> threads;
-	atomic<int> primeCount = 0;
-	int coreCount = thread::hardware_concurrency();
-	int jobCount = (MAX_NUMBER / coreCount) + 1;
-
-	for (int i = 0; i < coreCount; ++i)
+	while (true)
 	{
-		int start = (i * jobCount) + 1;
-		int end = min(MAX_NUMBER, ((i + 1) * jobCount));
-
-		threads.push_back(thread([start, end, &primeCount]() 
+		if (missile)
+		{
+			if (missile->Update())
 			{
-				primeCount += CountPrime(start, end);
-
-			}));
+				//missile->ReleaeseRef();
+				missile = nullptr;
+			}
+		}
 	}
-	for (thread& t : threads)
-		t.join();
 
-	cout << primeCount << endl;
+	//missile->ReleaeseRef();
+	missile = nullptr;
 }
