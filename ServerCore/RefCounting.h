@@ -50,6 +50,7 @@ public:
 	template<typename U>
 	TSharedPtr(const TSharedPtr<U>& rhs) { Set(static_cast<T*>(rhs._ptr)); }
 
+
 	~TSharedPtr() { Release(); }
 
 public:

@@ -10,77 +10,52 @@
 #include "ThreadManager.h"
 
 #include "RefCounting.h"
+using KnightRef = TSharedPtr<class Knight>;
+using InventoryRef = TSharedPtr<class Inventory>;
 
-class Wraight : public RefCountable
+class Knight
 {
 public:
-	int _hp = 150;
-	int _posX = 0;
-	int _posY = 0;
-};
-
-using WraightRef = TSharedPtr<Wraight>;
-
-class Missile : public RefCountable
-{
-public:
-	void SetTarget(WraightRef target)
+	Knight()
 	{
-		_target = target;
-		// 중간에 개입 가능
-		//target.AddRef();
+		cout << "생성자" << endl;
 	}
 
-	bool Update()
+	~Knight()
 	{
-		if (_target == nullptr)
-			return true;
-
-		int posX = _target->_posX;
-		int posY = _target->_posY;
-
-		// TODO: 쫓아간다
-		if (_target->_hp == 0)
-		{
-			//_target->ReleaeseRef();
-			_target = nullptr;
-			return true;
-		}
-		return false;
+		cout << "소멸자" << endl;
 	}
-	WraightRef _target = nullptr;
 
 };
-
-using MissileRef = TSharedPtr<Missile>;
 
 
 int main()
 {
-	WraightRef wraight(new Wraight());
-	wraight->ReleaseRef();
-	MissileRef missile(new Missile());
-	missile->ReleaseRef();
-	
-	missile->SetTarget(wraight);
-	
-	// 레이스가 피격 당함
-	wraight->_hp = 0;
-	//wraight->ReleaeseRef();
-	wraight = nullptr;
+	// 1) 이미 만들어진 클래스 대상으로 사용 불가
+	// 2) 순환 (Cycle) 문제
 
-	while (true)
+
+	/*unique_ptr<Knight> k2 = make_unique<Knight>();
+	unique_ptr<Knight> k3 = std::move(k2);*/
+	// unique_ptr -> 복사를 막아놨슴 k2 = k3 오류
+	
+	// shared_ptr
+	// weak_ptr 순환문제 해결 가능
+
+	// [knight][RefCountingBlock]
+	
+	// [T*][RefCountBlocking*]
+
+	// RefCountBlock(useCount(shared), weakCount)
+	shared_ptr<Knight> spr = make_shared<Knight>();
+	weak_ptr<Knight> wpr = spr; // 객체가 사라지는건 상관 안함. 
+	//RCB를 사용하여 객체가 진짜 살아졌는지 안했는지를 테스트하기 위한 부분을 유지시켜주는 역할 
+
+	bool expired = wpr.expired(); // wpr이 존재하는지 체크
+
+	shared_ptr<Knight>spr2 = wpr.lock(); // 위에 방법이 번거롭다면 그냥 캐스팅
+	if (spr2 != nullptr)
 	{
-		if (missile)
-		{
-			if (missile->Update())
-			{
-				//missile->ReleaeseRef();
-				missile = nullptr;
-			}
-		}
-	}
 
-	//missile->ReleaeseRef();
-	missile = nullptr;
+	}
 }
