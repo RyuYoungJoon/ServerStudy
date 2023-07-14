@@ -11,6 +11,7 @@
 
 #include "RefCounting.h"
 #include "Memory.h"
+#include "Allocator.h"
 
 class Player
 {
@@ -42,28 +43,9 @@ public:
 
 int main()
 {
-	// 가상 메모리 기본
-	
-	// 유저레벨 (메모장, 롤, 서버) 여러 프로그램 띄움
-	//----------------------------
-	// 커널레벨 (OS CODE)
+	Vector<Knight> v(100);
 
-	// 2GB [						] 
-	// 옵션 어떤 부분은 접근,사용 가능 / 접근은 가능하지만 WRITE불가 / 아무렇게 접근 가능
-	// 2GB / 4kb [ooooxxxxoooxxoxxxox	] 
-	// 2GB / 4kb [[r][w][rw][x][][][][][][]  ] 페이지 단위로 관리
-	// 
-	//Knight* test = (Knight*)::VirtualAlloc(NULL, 4, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-	//test->_hp = 100;
-	//::VirtualFree(test, 0, MEM_RELEASE); // 이제 이 영역은 사용할 수 없는 영역
-	//test->_hp = 200;
-
-	// 오버플로우 문제
-	// [                    [     ]] 끝에부터 메모리를 저장
-
-	Knight* knight = (Knight*)xnew<Player>();
-
-	knight->_hp = 100;
-	xdelete(knight);
+	Map<int32, Knight> m;
+	m[100] = Knight();
 
 }
