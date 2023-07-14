@@ -12,7 +12,13 @@
 #include "RefCounting.h"
 #include "Memory.h"
 
-class Knight
+class Player
+{
+public:
+	Player(){}
+	virtual ~Player() {}
+};
+class Knight : public Player
 {
 public:
 	Knight()
@@ -30,53 +36,34 @@ public:
 		cout << "소멸자" << endl;
 	}
 
-	/*static void* operator new(size_t size)
-	{
-		cout << "Knight new! " << size << endl;
-		void* ptr = ::malloc(size);
-		return ptr;
-	}
-	static void operator delete(void* ptr)
-	{
-		cout << "Knight delete" << endl;
-		::free(ptr);
-	}*/
-
 	int32 _hp = 100;
-	int32 _mp = 100;
+	int32 _mp = 10;
 };
-
-// new operator overloading (Global)
-//void* operator new(size_t size)
-//{
-//	cout << "new! " << size << endl;
-//	void* ptr = ::malloc(size);
-//	return ptr;
-//}
-//void operator delete(void* ptr)
-//{
-//	cout << "delete" << endl;
-//	::free(ptr);
-//}
-//void* operator new[](size_t size)
-//{
-//	cout << "new[]! " << size << endl;
-//	void* ptr = ::malloc(size);
-//	return ptr;
-//}
-//void operator delete[](void* ptr)
-//{
-//	cout << "delete[]" << endl;
-//	::free(ptr);
-//}
 
 int main()
 {
-	// 커널모드까지 가지 않ㄹ고 유저 모드에서 메모리를 할당할 수 있슴
-	// 자잘한 메모리들이 할당 되고 free 되면 합쳐지지 않고 그 만큼 낭비가 됨
-	//
-	Knight* knight = xnew<Knight>(100);
+	// 가상 메모리 기본
+	
+	// 유저레벨 (메모장, 롤, 서버) 여러 프로그램 띄움
+	//----------------------------
+	// 커널레벨 (OS CODE)
 
+	// 2GB [						] 
+	// 옵션 어떤 부분은 접근,사용 가능 / 접근은 가능하지만 WRITE불가 / 아무렇게 접근 가능
+	// 2GB / 4kb [ooooxxxxoooxxoxxxox	] 
+	// 2GB / 4kb [[r][w][rw][x][][][][][][]  ] 페이지 단위로 관리
+	// 
+	//Knight* test = (Knight*)::VirtualAlloc(NULL, 4, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	//test->_hp = 100;
+	//::VirtualFree(test, 0, MEM_RELEASE); // 이제 이 영역은 사용할 수 없는 영역
+	//test->_hp = 200;
+
+	// 오버플로우 문제
+	// [                    [     ]] 끝에부터 메모리를 저장
+
+	Knight* knight = (Knight*)xnew<Player>();
+
+	knight->_hp = 100;
 	xdelete(knight);
 
 }
