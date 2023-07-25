@@ -12,55 +12,60 @@
 #include "RefCounting.h"
 #include "Memory.h"
 #include "Allocator.h"
+#include "LockFreeStack.h"
 
-class Player
+DECLSPEC_ALIGN(16)
+class Data //: public SListEntry
 {
 public:
-	Player(){}
-	virtual ~Player() {}
+	SListEntry _entry;
+
+	int64 _rand = rand() % 100;
 };
-class Knight : public Player
-{
-public:
-	Knight()
-	{
-		cout << "생성자" << endl;
-	}
-
-	Knight(int32 hp) : _hp(hp)
-	{
-		cout << "Knight(hp)" << endl;
-	}
-
-	~Knight()
-	{
-		cout << "소멸자" << endl;
-	}
-
-	int32 _hp = 100;
-	int32 _mp = 10;
-};
+SListHeader* GHeader;
 
 int main()
 {
-	// 왜 메모리 풀링?
-	// 해제 -> 할당 / 해제 -> 할당 반복
-	// 컨텍스트 스위칭 자주 발생
-	// [ ][ ][ ][ ][ ][ ][ ][ ][ ][ ] 메모리 사용 못하는 영역 발생 가능
-
-	for (int32 i = 0; i < 5; ++i)
+	GHeader = new SListHeader();
+	ASSERT_CRASH(((uint64)GHeader % 16) == 0);
+	InitiallizeHead(GHeader);
+	
+	for (int32 i = 0; i < 3; ++i)
 	{
 		GThreadManger->Launch([]()
 			{
 				while (true)
 				{
-					Vector<Knight> v(10);
+					Data* data = new Data();
+					ASSERT_CRASH(((uint64)GHeader % 16) == 0);
 
-					Map<int32, Knight> m;
-					m[100] = Knight();
-
-					this_thread::sleep_for(100ms);
+					PushEntrySList(GHeader, (SListEntry*)data);
+					this_thread::sleep_for(10ms);
 				}
+
+			});
+	}
+
+	for (int32 i = 0; i < 2; ++i)
+	{
+		GThreadManger->Launch([]()
+			{
+				while (true)
+				{
+					Data* pop = nullptr;
+					pop = (Data*)PopEntrySList(GHeader);
+
+					if (pop)
+					{
+						cout << pop->_rand << endl;
+						delete pop;
+					}
+					else
+					{
+						cout << "None" << endl;
+					}
+				}
+
 			});
 	}
 
