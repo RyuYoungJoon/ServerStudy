@@ -12,62 +12,32 @@
 #include "RefCounting.h"
 #include "Memory.h"
 #include "Allocator.h"
-#include "LockFreeStack.h"
 
-DECLSPEC_ALIGN(16)
-class Data //: public SListEntry
+class Knight
 {
 public:
-	SListEntry _entry;
-
-	int64 _rand = rand() % 100;
+	int32 _hp = rand() % 1000;
 };
-SListHeader* GHeader;
 
 int main()
 {
-	GHeader = new SListHeader();
-	ASSERT_CRASH(((uint64)GHeader % 16) == 0);
-	InitiallizeHead(GHeader);
-	
-	for (int32 i = 0; i < 3; ++i)
+	for (int32 i = 0; i < 5; ++i)
 	{
 		GThreadManger->Launch([]()
 			{
 				while (true)
 				{
-					Data* data = new Data();
-					ASSERT_CRASH(((uint64)GHeader % 16) == 0);
+					Knight* knight = xnew<Knight>();
 
-					PushEntrySList(GHeader, (SListEntry*)data);
+					cout << knight->_hp << endl;
 					this_thread::sleep_for(10ms);
+
+					xdelete(knight);
 				}
 
 			});
 	}
 
-	for (int32 i = 0; i < 2; ++i)
-	{
-		GThreadManger->Launch([]()
-			{
-				while (true)
-				{
-					Data* pop = nullptr;
-					pop = (Data*)PopEntrySList(GHeader);
-
-					if (pop)
-					{
-						cout << pop->_rand << endl;
-						delete pop;
-					}
-					else
-					{
-						cout << "None" << endl;
-					}
-				}
-
-			});
-	}
 
 	GThreadManger->Join();
 }
