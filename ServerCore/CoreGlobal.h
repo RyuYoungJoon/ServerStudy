@@ -1,6 +1,6 @@
 #pragma once
 
-extern class ThreadManager* GThreadManger;
-
-extern class DeadLockProfiler* GDeadLockProfiler;
+extern class ThreadManager*		GThreadManger;
+extern class MemoryManager*		GMemory;
+extern class DeadLockProfiler*	GDeadLockProfiler;
 

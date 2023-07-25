@@ -18,11 +18,11 @@
 		Memory
 ---------------------*/
 #ifdef _DEBUG
-#define yalloc(size) StompAllocator::Alloc(size)
-#define xrelease(ptr) StompAllocator::Release(ptr)
+#define yalloc(size)	PoolAllocator::Alloc(size)
+#define xrelease(ptr)	PoolAllocator::Release(ptr)
 #else
-#define xalloc(size) BaseAllocator::Alloc(size)
-#define xrelease(ptr) BaseAllocator::Release(ptr)
+#define xalloc(size)	BaseAllocator::Alloc(size)
+#define xrelease(ptr)	BaseAllocator::Release(ptr)
 #endif
 
 
