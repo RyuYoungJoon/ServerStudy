@@ -1,29 +1,26 @@
 ﻿#include "pch.h"
 #include <iostream>
 
-#include <WinSock2.h>
-#include <MSWSock.h>
-#include <WS2tcpip.h>
-#pragma comment(lib,"ws2_32.lib")
+#include <winsock2.h>
+#include <mswsock.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
 
 void HandleError(const char* cause)
 {
 	int32 errCode = ::WSAGetLastError();
-	cout << cause << "ErrorCode : " << errCode << endl;
+	cout << cause << " ErrorCode : " << errCode << endl;
 }
 
 int main()
 {
-	WSADATA wsaData;
-	if (::WSAStartup(MAKEWORD(2, 2), &wsaData))
+	WSAData wsaData;
+	if (::WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
 		return 0;
 
 	SOCKET clientSocket = ::socket(AF_INET, SOCK_STREAM, 0);
 	if (clientSocket == INVALID_SOCKET)
-	{
-		HandleError("Socket");
 		return 0;
-	}
 
 	u_long on = 1;
 	if (::ioctlsocket(clientSocket, FIONBIO, &on) == INVALID_SOCKET)
@@ -33,7 +30,7 @@ int main()
 	::memset(&serverAddr, 0, sizeof(serverAddr));
 	serverAddr.sin_family = AF_INET;
 	::inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);
-	serverAddr.sin_port = ::htons(8888);
+	serverAddr.sin_port = ::htons(7777);
 
 	// Connect
 	while (true)
@@ -46,29 +43,30 @@ int main()
 			// 이미 연결된 상태라면 break
 			if (::WSAGetLastError() == WSAEISCONN)
 				break;
-			// ERROR
+			// Error
 			break;
 		}
 	}
 
-	cout << "Connected To Server" << endl;
+	cout << "Connected to Server!" << endl;
 
-	char sendBuffer[100] = "HelloWorld!";
+	char sendBuffer[100] = "Hello World";
+
 	// Send
 	while (true)
 	{
-		if (::send(clientSocket, sendBuffer, sizeof(sendBuffer), 0))
+		if (::send(clientSocket, sendBuffer, sizeof(sendBuffer), 0) == SOCKET_ERROR)
 		{
 			// 원래 블록했어야 했는데... 너가 논블로킹으로 하라며?
 			if (::WSAGetLastError() == WSAEWOULDBLOCK)
 				continue;
-			// ERROR
+			// Error
 			break;
 		}
 
-		cout << "Send Data! Len : " << sizeof(sendBuffer) << endl;
+		cout << "Send Data ! Len = " << sizeof(sendBuffer) << endl;
 
-
+		// Recv
 		while (true)
 		{
 			char recvBuffer[1000];
@@ -78,23 +76,23 @@ int main()
 				// 원래 블록했어야 했는데... 너가 논블로킹으로 하라며?
 				if (::WSAGetLastError() == WSAEWOULDBLOCK)
 					continue;
-				// ERROR
+
+				// Error
 				break;
 			}
 			else if (recvLen == 0)
 			{
-				// 연결 끊킴
+				// 연결 끊김
 				break;
 			}
 
-			cout << "Recv Data! Len : " << recvLen << endl;
+			cout << "Recv Data Len = " << recvLen << endl;
 			break;
 		}
 
 		this_thread::sleep_for(1s);
 	}
-	//-----------------------------
-	
+
 	// 소켓 리소스 반환
 	::closesocket(clientSocket);
 

@@ -1,39 +1,38 @@
 ﻿#include "pch.h"
 #include <iostream>
 #include "CorePch.h"
-#include <thread>
 #include <atomic>
-#include <vector>
 #include <mutex>
 #include <windows.h>
 #include <future>
 #include "ThreadManager.h"
 
-#include <WinSock2.h>
-#include <MSWSock.h>
-#include <WS2tcpip.h>
-#pragma comment(lib,"ws2_32.lib")
+#include <winsock2.h>
+#include <mswsock.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
 
 void HandleError(const char* cause)
 {
 	int32 errCode = ::WSAGetLastError();
-	cout << cause << "ErrorCode : " << errCode << endl;
+	cout << cause << " ErrorCode : " << errCode << endl;
 }
+
+const int32 BUFSIZE = 1000;
+
+struct Session
+{
+	SOCKET socket = INVALID_SOCKET;
+	char recvBuffer[BUFSIZE] = {};
+	int32 recvBytes = 0;
+	int32 sendBytes = 0;
+};
 
 int main()
 {
-	WSADATA wsaData;
-	if (::WSAStartup(MAKEWORD(2, 2), &wsaData))
+	WSAData wsaData;
+	if (::WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
 		return 0;
-
-	// 블로킹(Blocking)
-	// accept -> 접속한 클라가 있을 때
-	// connect -> 클라가 서버에 접속 성공 했을 때
-	// send, sendto -> 요청한 데이터를 송신 버퍼에 복사했을 때
-	// recv, recvfrom -> 수신 버퍼에 도착한 데이터가 있고, 이를 유저레벨 버퍼에 복사했을 때 
-	
-
-	// 논블로킹(Non-Blocking)
 
 	SOCKET listenSocket = ::socket(AF_INET, SOCK_STREAM, 0);
 	if (listenSocket == INVALID_SOCKET)
@@ -47,7 +46,7 @@ int main()
 	::memset(&serverAddr, 0, sizeof(serverAddr));
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_addr.s_addr = ::htonl(INADDR_ANY);
-	serverAddr.sin_port = ::htons(8888);
+	serverAddr.sin_port = ::htons(7777);
 
 	if (::bind(listenSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
 		return 0;
@@ -55,67 +54,116 @@ int main()
 	if (::listen(listenSocket, SOMAXCONN) == SOCKET_ERROR)
 		return 0;
 
-	cout << "ACCEPT" << endl;
+	cout << "Accept" << endl;
 
-	SOCKADDR_IN clientAddr;
-	int32 addrLen = sizeof(clientAddr);
+	// Select 모델 = (select 함수가 핵심이 되는)
+	// 소켓 함수 호출이 성공할 시점을 미리 알 수 있다!
+	// 문제 상황)
+	// 수신버퍼에 데이터가 없는데, read 한다거나!
+	// 송신버퍼가 꽉 찼는데, write 한다거나!
+	// - 블로킹 소켓 : 조건이 만족되지 않아서 블로킹되는 상황 예방
+	// - 논블로킹 소켓 : 조건이 만족되지 않아서 불필요하게 반복 체크하는 상황을 예방
 
-	// Accept
+	// socket set
+	// 1) 읽기[ 2 ] 쓰기[ ] 예외(OOB)[ ] 관찰 대상 등록
+	// OutOfBand는 send() 마지막 인자 MSG_OOB로 보내는 특별한 데이터
+	// 받는 쪽에서도 recv OOB 세팅을 해야 읽을 수 있음
+	// 2) select(readSet, writeSet, exceptSet); -> 관찰 시작
+	// 3) 적어도 하나의 소켓이 준비되면 리턴 -> 낙오자는 알아서 제거됨
+	// 4) 남은 소켓 체크해서 진행
+
+	// fd_set set;
+	// FD_ZERO : 비운다
+	// ex) FD_ZERO(set);
+	// FD_SET : 소켓 s를 넣는다
+	// ex) FD_SET(s, &set);
+	// FD_CLR : 소켓 s를 제거
+	// ex) FD_CLR(s, &set);
+	// FD_ISSET : 소켓 s가 set에 들어있으면 0이 아닌 값을 리턴한다
+
+	
+	vector<Session> sessions;
+	sessions.reserve(100);
+
+	
+	fd_set reads;
+	fd_set writes;
+
 	while (true)
 	{
-		SOCKET clientSocket = ::accept(listenSocket, (SOCKADDR*)&clientAddr, &addrLen);
-		if (clientSocket == INVALID_SOCKET)
-		{
-			// 원래 블록했어야 했는데... 너가 논블로킹으로 하라며?
-			if (::WSAGetLastError() == WSAEWOULDBLOCK)
-				continue;
+		// 소켓 셋 초기화
+		FD_ZERO(&reads);
+		FD_ZERO(&writes);
 
-			//ERROR
-			break;
+		// ListenSocket 등록
+		FD_SET(listenSocket, &reads);
+
+		// 소켓 등록
+		for (Session& s : sessions)
+		{
+			if (s.recvBytes <= s.sendBytes)
+				FD_SET(s.socket, &reads);
+			else
+				FD_SET(s.socket, &writes);
 		}
-		cout << "Client Connected" << endl;
 
-		// Recv
-		while (true)
+		// [옵션] 마지막 timeout 인자 설정 가능
+		int32 retVal = ::select(0, &reads, &writes, nullptr, nullptr);
+		if (retVal == SOCKET_ERROR)
+			break;
+
+		// Listener 소켓 체크
+		if (FD_ISSET(listenSocket, &reads))
 		{
-			char recvBuffer[1000];
-			int32 recvLen = ::recv(clientSocket, recvBuffer, sizeof(recvBuffer), 0);
-			if (recvLen == SOCKET_ERROR)
+			SOCKADDR_IN clientAddr;
+			int32 addrLen = sizeof(clientAddr);
+			SOCKET clientSocket = ::accept(listenSocket, (SOCKADDR*)&clientAddr, &addrLen);
+			if (clientSocket != INVALID_SOCKET)
 			{
-				// 원래 블록했어야 했는데... 너가 논블로킹으로 하라며?
-				if (::WSAGetLastError() == WSAEWOULDBLOCK)
-					continue;
-				// ERROR
-				break;
+				cout << "Client Connected" << endl;
+				sessions.push_back(Session{ clientSocket });
 			}
-			else if (recvLen == 0)
-			{
-				// 연결 끊킴
-				break;
-			}
+		}
 
-			cout << "Recv Data! Len : " << recvLen << endl;
-
-			// Send
-			while (true)
+		// 나머지 소켓 체크
+		for (Session& s : sessions)
+		{
+			// Read
+			if (FD_ISSET(s.socket, &reads))
 			{
-				if (::send(clientSocket, recvBuffer, recvLen, 0))
+				int32 recvLen = ::recv(s.socket, s.recvBuffer, BUFSIZE, 0);
+				if (recvLen <= 0)
 				{
-					// 원래 블록했어야 했는데... 너가 논블로킹으로 하라며?
-					if (::WSAGetLastError() == WSAEWOULDBLOCK)
-						continue;
-					// ERROR
-					break;
+					// TODO : sessions 제거
+					continue;
 				}
 
-				cout << "Send Data! Len : " << recvLen << endl;
-				break;
+				s.recvBytes = recvLen;
+			}
+
+			// Write
+			if (FD_ISSET(s.socket, &writes))
+			{
+				// 블로킹 모드 -> 모든 데이터 다 보냄
+				// 논블로킹 모드 -> 일부만 보낼 수가 있음 (상대방 수신 버퍼 상황에 따라)
+				int32 sendLen = ::send(s.socket, &s.recvBuffer[s.sendBytes], s.recvBytes - s.sendBytes, 0);
+				if (sendLen == SOCKET_ERROR)
+				{
+					// TODO : sessions 제거
+					continue;
+				}
+
+				s.sendBytes += sendLen;
+				if (s.recvBytes == s.sendBytes)
+				{
+					s.recvBytes = 0;
+					s.sendBytes = 0;
+				}
 			}
 		}
 	}
-	
-	
-	//---------------------------------
+
+
 	// 윈속 종료
 	::WSACleanup();
 }
