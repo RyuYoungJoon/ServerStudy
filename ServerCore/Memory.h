@@ -39,10 +39,8 @@ Type* xnew(Args&&... args) // 가변길이
 {
 	// 그냥 new -> 메모리 할당하고 생성자를 호출해줘
 	Type* memory = static_cast<Type*>(PoolAllocator::Alloc(sizeof(Type)));
-
 	// placement new
 	new(memory)Type(std::forward<Args>(args)...); // 메모리는 있으니까 굳이 만들지말고 메모리 위에다가 생성자를 호출 해줘
-
 	return memory;
 }
 
@@ -53,8 +51,8 @@ void xdelete(Type* obj)
 	PoolAllocator::Release(obj);
 }
 
-template<typename Type>
-shared_ptr<Type> MakeShared()
+template<typename Type, typename... Args>
+shared_ptr<Type> MakeShared(Args&&... args)
 {
-	return shared_ptr<Type>{xnew<Type>(), xdelete<Type>};
+	return shared_ptr<Type>{xnew<Type>(forward<Args>(args)...), xdelete<Type>};
 }

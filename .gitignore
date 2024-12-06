@@ -36,3 +36,12 @@
 *.pdb
 *.tlog
 *.vsidx
+
+# Visual Studio 관련 디렉토리
+.vs/
+.x64/
+/Binaries
+.Debug/
+/Client/x64
+/ServerCore/x64/Debug
+/GameServer/x64/Debug
