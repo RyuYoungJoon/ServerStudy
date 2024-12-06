@@ -3,3 +3,4 @@
 .vs/Server/v17/Browse.VC.db-wal
 .vs/Server/v17/Browse.VC.opendb
 *.vsidx
+Tools/PacketGenerator/__pycache__/PacketGenerator.cpython-37.pyc
